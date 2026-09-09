@@ -1,0 +1,59 @@
+# This workflow periodically updates codex.spec to newest upstream stable release.
+
+name: Update spec to latest release
+
+on:
+  schedule:
+    - cron: "20 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  update-release:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install RPM tools
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - name: Get declared spec version
+        id: spec
+        run: echo "version=$(rpmspec --query --queryformat '%{VERSION}' codex.spec)" >> "$GITHUB_OUTPUT"
+
+      - name: Compare latest upstream stable release
+        id: compare-upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_VERSION: ${{ steps.spec.outputs.version }}
+        run: |
+          tag=$(gh api repos/openai/codex/releases/latest --jq .tag_name)
+          version=${tag#rust-v}
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ "$(printf '%s\n%s\n' "$CURRENT_VERSION" "$version" | sort -V | head -n1)" = "$CURRENT_VERSION" ] && [ "$CURRENT_VERSION" != "$version" ]; then
+            echo "upstream_is_newer=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update and commit spec
+        if: steps.compare-upstream.outputs.upstream_is_newer == 'true'
+        run: |
+          sed -Ei \
+            -e "/^Version:/ s/[0-9]+(\.[0-9]+)+/${{ steps.compare-upstream.outputs.version }}/" \
+            -e '/^Release:/ s/[0-9]+/1/' \
+            codex.spec
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add codex.spec
+          git commit -m "Update Codex to ${{ steps.compare-upstream.outputs.version }}"
+          git push
+
+      - name: Trigger build workflow
+        if: steps.compare-upstream.outputs.upstream_is_newer == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run rebuild-changed.yaml --ref master
