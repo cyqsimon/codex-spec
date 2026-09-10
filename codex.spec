@@ -2,7 +2,7 @@
 
 Name:           codex
 Version:        0.154.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Official MUSL build of Codex CLI from OpenAI
 
 License:        Apache-2.0
@@ -16,12 +16,14 @@ Codex CLI is a coding agent from OpenAI that runs locally on your computer.
 
 %prep
 %ifarch aarch64
-%setup -DTq -n . -b0 -b1
+%global binary_source 1
 %elifarch x86_64
-%setup -DTq -n . -b0 -b2
+%global binary_source 2
 %else
 %error Unsupported architecture: %{_arch}
 %endif
+
+%setup -DTq -n . -b0 -b%{binary_source}
 
 %install
 # bin
