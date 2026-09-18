@@ -13,7 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
-      builds: ${{ steps.send-request.outputs.build_id }}
+      build_id: ${{ steps.send-request.outputs.build_id }}
+      build_url: ${{ steps.send-request.outputs.build_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -32,20 +33,23 @@ jobs:
           if [[ -n "${{ steps.spec-modified.outputs.modified_files }}" ]]; then
             echo "Spec file changed; sending rebuild request"
             BUILD_ID=$(curl -Ssf -X POST "$URL")
-            echo "Build submitted: https://copr.fedorainfracloud.org/coprs/build/$BUILD_ID"
+            BUILD_URL="https://copr.fedorainfracloud.org/coprs/build/$BUILD_ID"
+            echo "Build submitted: $BUILD_URL"
             echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+            echo "build_url=$BUILD_URL" >> "$GITHUB_OUTPUT"
           fi
 
   report-status:
     name: Report build status
     needs: trigger-rebuild-on-modify
     runs-on: ubuntu-latest
-    if: needs.trigger-rebuild-on-modify.outputs.builds != ''
+    if: needs.trigger-rebuild-on-modify.outputs.build_id != ''
     steps:
       - name: Report status
         run: |
+          echo "Monitoring build ${{ needs.trigger-rebuild-on-modify.outputs.build_url }}"
           while true; do
-            STATUS=$(curl -Ssf "https://copr.fedorainfracloud.org/api_3/build/${{ needs.trigger-rebuild-on-modify.outputs.builds }}" | jq -r '.state')
+            STATUS=$(curl -Ssf "https://copr.fedorainfracloud.org/api_3/build/${{ needs.trigger-rebuild-on-modify.outputs.build_id }}" | jq -r '.state')
             case $STATUS in
               pending | starting | importing | imported | waiting | running)
                 echo "Build is $STATUS. Querying again in 15s."
