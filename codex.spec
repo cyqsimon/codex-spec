@@ -1,8 +1,8 @@
 %global debug_package %{nil}
 
 Name:           codex
-Version:        0.154.0
-Release:        3%{?dist}
+Version:        0.155.0
+Release:        1%{?dist}
 Summary:        Official MUSL build of Codex CLI from OpenAI
 
 License:        Apache-2.0
