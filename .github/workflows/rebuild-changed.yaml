@@ -10,7 +10,7 @@ on:
 jobs:
   trigger-rebuild-on-modify:
     name: Trigger rebuild
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 3
     outputs:
       build_id: ${{ steps.send-request.outputs.build_id }}
